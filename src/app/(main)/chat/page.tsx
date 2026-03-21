@@ -18,7 +18,7 @@ export default function ChatPage() {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [loading, setLoading] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -54,7 +54,7 @@ export default function ChatPage() {
 
   // Load messages when channel changes and set up realtime
   useEffect(() => {
-    let subscription: any;
+    let subscription: ReturnType<typeof supabase.channel>;
 
     async function loadMessages() {
       if (!selectedChannel) return;
@@ -65,7 +65,7 @@ export default function ChatPage() {
         .eq('channel_id', selectedChannel.id)
         .order('created_at', { ascending: true });
         
-      if (data) setMessages(data as any);
+      if (data) setMessages(data as unknown as Message[]);
 
       // Realtime subscription for the current channel
       subscription = supabase

@@ -1,15 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Clock, MapPin, Navigation, Coffee, Users, Target, Laptop, Lightbulb, Settings, Info, Utensils, Plane, Award, List } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, MapPin, Navigation, Coffee, Users, Target, Laptop, Lightbulb, Settings, Info, Utensils, Plane, Award, List, LucideIcon } from "lucide-react";
 
 type EventItem = {
   time: string;
   title: string;
   description?: string;
   location?: string;
-  icon: any;
+  icon: LucideIcon;
   type: string;
+};
+
+type DayItem = {
+  id: string;
+  shortLabel: string;
+  label: string;
+  date: string;
+  isoDate: string;
+  events: EventItem[];
 };
 
 export default function SchedulePage() {
@@ -22,7 +31,7 @@ export default function SchedulePage() {
     return () => clearInterval(timer);
   }, []);
 
-  const days = [
+  const days: DayItem[] = [
     {
       id: "day0",
       shortLabel: "Mon 30",
@@ -112,7 +121,7 @@ export default function SchedulePage() {
     let closestTimeDiff = Infinity;
 
     days.forEach(day => {
-      day.events.forEach((event: any) => {
+      day.events.forEach((event: EventItem) => {
         const eventDate = getEventDate(day.isoDate, event.time);
         const diff = eventDate.getTime() - currentTime.getTime();
         

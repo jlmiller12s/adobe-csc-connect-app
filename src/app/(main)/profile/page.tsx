@@ -120,9 +120,9 @@ export default function ProfilePage() {
       setAvatarUrl(publicUrl);
       // Dispatch event to update Sidebar immediately
       window.dispatchEvent(new Event("profile-updated"));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error uploading avatar:", error);
-      alert("Failed to upload avatar: " + error.message);
+      alert("Failed to upload avatar: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setUploading(false);
     }

@@ -4,8 +4,15 @@ import { useEffect, useState, useRef } from "react";
 import { Heart, MessageCircle, MoreHorizontal, Plus, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+type Photo = {
+  id: string;
+  image_url: string;
+  caption?: string;
+  profiles?: { name: string; role: string; avatar_url: string | null };
+};
+
 export default function PhotosPage() {
-  const [photos, setPhotos] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,6 +39,7 @@ export default function PhotosPage() {
 
   useEffect(() => {
     fetchPhotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle uploading new photo

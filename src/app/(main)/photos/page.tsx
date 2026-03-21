@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Heart, MessageCircle, MoreHorizontal, Plus, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -16,7 +16,7 @@ export default function PhotosPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Fetch real photos from database
   const fetchPhotos = async () => {

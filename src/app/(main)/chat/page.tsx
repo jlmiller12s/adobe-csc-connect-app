@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2 } from "lucide-react";
+import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle } from "lucide-react";
 
 type Channel = { id: string; name: string };
 type Message = {
@@ -22,7 +22,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Scroll to bottom helper
   const scrollToBottom = () => {
@@ -36,21 +36,29 @@ export default function ChatPage() {
   // Load User and Channels
   useEffect(() => {
     async function initializeChat() {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
+      try {
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user);
 
-      // Load channels
-      const { data: channelsData } = await supabase.from('channels').select('*').order('created_at');
-      if (channelsData && channelsData.length > 0) {
-        setChannels(channelsData);
-        setSelectedChannel(channelsData[0]);
+        // Load channels
+        const { data: channelsData, error } = await supabase.from('channels').select('*').order('created_at');
+        if (error) {
+          console.error('Error loading channels:', error);
+        } else if (channelsData && channelsData.length > 0) {
+          setChannels(channelsData);
+          setSelectedChannel(channelsData[0]);
+        }
+      } catch (err) {
+        console.error('Chat init error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     
     initializeChat();
-  }, [supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load messages when channel changes and set up realtime
   useEffect(() => {
@@ -102,7 +110,8 @@ export default function ChatPage() {
     return () => {
       if (subscription) subscription.unsubscribe();
     };
-  }, [selectedChannel, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChannel]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +135,18 @@ export default function ChatPage() {
 
   if (loading) {
      return <div className="h-[calc(100vh-80px)] md:h-screen flex items-center justify-center bg-gray-50 dark:bg-[#09090b]"><Loader2 className="animate-spin text-adobe-red w-8 h-8"/></div>;
+  }
+
+  if (channels.length === 0) {
+    return (
+      <div className="h-[calc(100vh-80px)] md:h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#09090b] px-6">
+        <div className="w-20 h-20 rounded-full bg-adobe-red/10 flex items-center justify-center mb-6">
+          <MessageCircle className="text-adobe-red" size={36} />
+        </div>
+        <h2 className="text-2xl font-bold dark:text-white mb-2">No Channels Yet</h2>
+        <p className="text-gray-500 text-center text-sm max-w-xs">Chat channels haven&apos;t been created yet. Check back soon or ask an admin to set them up in Supabase.</p>
+      </div>
+    );
   }
 
   return (

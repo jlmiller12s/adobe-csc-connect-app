@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Image as ImageIcon, MessageSquare, Notebook, Calendar, Users } from "lucide-react";
+import { Home, Image as ImageIcon, MessageSquare, Notebook, Calendar } from "lucide-react";
 
 export function BottomNav() {
   const pathname = usePathname();

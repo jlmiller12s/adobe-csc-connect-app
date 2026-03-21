@@ -3,6 +3,15 @@
 import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon, Clock, MapPin, Navigation, Coffee, Users, Target, Laptop, Lightbulb, Settings, Info, Utensils, Plane, Award, List } from "lucide-react";
 
+type EventItem = {
+  time: string;
+  title: string;
+  description?: string;
+  location?: string;
+  icon: any;
+  type: string;
+};
+
 export default function SchedulePage() {
   const [view, setView] = useState<'list' | 'week'>('week');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -81,7 +90,9 @@ export default function SchedulePage() {
       return new Date(`${isoDate}T12:00:00`);
     }
     const [time, modifier] = timeString.split(' ');
-    let [hours, minutes] = time.split(':').map(Number);
+    const timeParts = time.split(':');
+    let hours = Number(timeParts[0]);
+    const minutes = Number(timeParts[1]);
     if (modifier === 'PM' && hours < 12) hours += 12;
     if (modifier === 'AM' && hours === 12) hours = 0;
     
@@ -97,7 +108,7 @@ export default function SchedulePage() {
 
   // Find the exact "next" event out of ALL events
   const findNextEvent = () => {
-    let nextEvent: any = null;
+    let nextEvent: EventItem | null = null;
     let closestTimeDiff = Infinity;
 
     days.forEach(day => {
@@ -117,7 +128,7 @@ export default function SchedulePage() {
 
   const nextUpcomingEvent = findNextEvent();
 
-  const renderEventList = (events: any[]) => (
+  const renderEventList = (events: EventItem[]) => (
     <div className="space-y-4 pt-4 pb-12">
       {events.map((event, index) => {
         const isNext = nextUpcomingEvent?.title === event.title && nextUpcomingEvent?.time === event.time;

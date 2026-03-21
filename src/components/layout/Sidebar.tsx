@@ -6,9 +6,11 @@ import { Home, Image as ImageIcon, MessageSquare, Notebook, Calendar, Users } fr
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+type ProfileData = { name: string; avatar_url: string | null } | null;
+
 export function Sidebar() {
   const pathname = usePathname();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData>(null);
   const supabase = createClient();
 
   useEffect(() => {

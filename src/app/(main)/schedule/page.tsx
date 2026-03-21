@@ -107,18 +107,18 @@ export default function SchedulePage() {
   };
 
   // Find the exact "next" event out of ALL events
-  const findNextEvent = () => {
+  const findNextEvent = (): EventItem | null => {
     let nextEvent: EventItem | null = null;
     let closestTimeDiff = Infinity;
 
     days.forEach(day => {
-      day.events.forEach(event => {
+      day.events.forEach((event: any) => {
         const eventDate = getEventDate(day.isoDate, event.time);
         const diff = eventDate.getTime() - currentTime.getTime();
         
         if (diff > 0 && diff < closestTimeDiff) {
           closestTimeDiff = diff;
-          nextEvent = event;
+          nextEvent = event as EventItem;
         }
       });
     });

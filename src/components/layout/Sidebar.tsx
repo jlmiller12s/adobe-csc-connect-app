@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Image as ImageIcon, MessageSquare, Notebook, Calendar, Users } from "lucide-react";
+import { Home, Image as ImageIcon, MessageSquare, Notebook, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -51,7 +51,6 @@ export function Sidebar() {
     { href: "/chat", label: "Chat", icon: MessageSquare },
     { href: "/notes", label: "Notes", icon: Notebook },
     { href: "/schedule", label: "Schedule", icon: Calendar },
-    { href: "/directory", label: "Directory", icon: Users },
   ];
 
   return (

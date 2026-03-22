@@ -14,7 +14,6 @@ export function TopBar() {
     if (pathname.startsWith("/chat")) return "Chat Hub";
     if (pathname.startsWith("/notes")) return "Conference Notes";
     if (pathname.startsWith("/schedule")) return "Schedule";
-    if (pathname.startsWith("/directory")) return "Directory";
     return "CSC Connect";
   };
 

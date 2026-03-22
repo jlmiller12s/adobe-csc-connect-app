@@ -86,7 +86,7 @@ export default function ChatPage() {
             table: 'messages',
             filter: `channel_id=eq.${selectedChannel.id}`,
           },
-          async (payload) => {
+          async (payload: any) => {
             // Fetch the profile for the new message
             const { data: profileData } = await supabase
               .from('profiles')

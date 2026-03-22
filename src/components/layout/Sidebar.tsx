@@ -24,7 +24,7 @@ export function Sidebar() {
     loadProfile();
 
     // Subscribe to auth changes to refresh if needed
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
        if (session?.user) {
          const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
          if (data) setProfile(data);

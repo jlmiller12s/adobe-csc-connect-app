@@ -86,6 +86,7 @@ export default function ChatPage() {
             table: 'messages',
             filter: `channel_id=eq.${selectedChannel.id}`,
           },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           async (payload: any) => {
             // Fetch the profile for the new message
             const { data: profileData } = await supabase

@@ -17,7 +17,7 @@ export default function NotificationsPage() {
         <div className="w-20 h-20 rounded-full bg-adobe-red/10 flex items-center justify-center mb-6">
           <Bell className="text-adobe-red" size={36} />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">You're all caught up!</h2>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">You&apos;re all caught up!</h2>
         <p className="text-gray-500 text-sm text-center max-w-xs">
           No new notifications right now. Check back later for updates.
         </p>

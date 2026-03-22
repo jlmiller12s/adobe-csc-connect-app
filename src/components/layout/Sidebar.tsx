@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Image as ImageIcon, MessageSquare, Notebook, Calendar } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type ProfileData = { name: string; avatar_url: string | null } | null;
@@ -11,7 +11,7 @@ type ProfileData = { name: string; avatar_url: string | null } | null;
 export function Sidebar() {
   const pathname = usePathname();
   const [profile, setProfile] = useState<ProfileData>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function loadProfile() {

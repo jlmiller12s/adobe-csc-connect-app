@@ -25,7 +25,8 @@ export default function ProfilePage() {
   useEffect(() => {
     async function getProfile() {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       
       if (user) {
         const { data: profile } = await supabase
@@ -54,7 +55,8 @@ export default function ProfilePage() {
     setSaving(true);
     setMessage("");
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return;
 
     const { error } = await supabase
@@ -86,7 +88,8 @@ export default function ProfilePage() {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       // Upload to 'photos' bucket under an 'avatars' folder

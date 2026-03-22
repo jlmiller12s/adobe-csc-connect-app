@@ -38,8 +38,9 @@ export default function ChatPage() {
     async function initializeChat() {
       try {
         // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        setCurrentUser(user);
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        setCurrentUser(user || null);
 
         // Load channels
         const { data: channelsData, error } = await supabase.from('channels').select('*').order('created_at');

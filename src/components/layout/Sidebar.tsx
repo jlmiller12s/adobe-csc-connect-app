@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Image as ImageIcon, MessageSquare, Notebook, Calendar } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSharedSession } from "@/lib/supabase/client";
 
 type ProfileData = { name: string; avatar_url: string | null } | null;
 
@@ -15,7 +15,7 @@ export function Sidebar() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSharedSession();
       const user = session?.user;
       if (user) {
         const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();

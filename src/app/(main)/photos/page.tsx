@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Plus, Loader2, X, ChevronLeft, ChevronRight, Upload, ImageIcon, Trash2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSharedSession } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -183,7 +183,7 @@ export default function PhotosPage() {
 
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await getSharedSession();
       const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
@@ -237,7 +237,7 @@ export default function PhotosPage() {
     try {
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await getSharedSession();
       const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 

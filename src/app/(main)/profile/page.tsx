@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSharedSession } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Camera, Loader2, LogOut, X } from "lucide-react";
@@ -25,7 +25,7 @@ export default function ProfilePage() {
   useEffect(() => {
     async function getProfile() {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSharedSession();
       const user = session?.user;
       
       if (user) {
@@ -55,7 +55,7 @@ export default function ProfilePage() {
     setSaving(true);
     setMessage("");
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSharedSession();
     const user = session?.user;
     if (!user) return;
 
@@ -88,7 +88,7 @@ export default function ProfilePage() {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSharedSession();
       const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 

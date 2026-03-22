@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSharedSession } from "@/lib/supabase/client";
 import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle } from "lucide-react";
 
 type Channel = { id: string; name: string };
@@ -38,7 +38,7 @@ export default function ChatPage() {
     async function initializeChat() {
       try {
         // Get current user
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await getSharedSession();
         const user = session?.user;
         setCurrentUser(user || null);
 

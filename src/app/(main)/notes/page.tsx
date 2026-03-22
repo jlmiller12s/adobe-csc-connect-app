@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { FileText, Plus, Search, X, Loader2, Trash2, Save, ArrowLeft, Globe, Lock } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSharedSession } from "@/lib/supabase/client";
 
 type Note = {
   id: string;
@@ -40,7 +40,7 @@ export default function NotesPage() {
   useEffect(() => {
     async function init() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await getSharedSession();
         const user = session?.user;
         setCurrentUser(user || null);
 

@@ -34,13 +34,19 @@ export function Sidebar() {
 
     // Subscribe to auth changes to refresh if needed
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
-       if (session?.user) {
-         const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
-         if (data) setProfile(data);
-       } else {
-         setProfile(null);
-       }
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event: string, session: unknown) => {
+      const authSession = session as { user?: { id: string } } | null;
+
+      if (!authSession?.user) {
+        setProfile(null);
+        return;
+      }
+
+      // Avoid Supabase queries inside the auth callback itself; this can deadlock
+      // later auth/database operations in the browser client.
+      window.setTimeout(() => {
+        loadProfile();
+      }, 0);
     });
 
     // Listen to manual updates from the profile page

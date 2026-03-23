@@ -110,7 +110,7 @@ export default function PhotosPage() {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await withTimeout(
+      const photosResult = await withTimeout(
         supabase
           .from("photos")
           .select(
@@ -121,7 +121,8 @@ export default function PhotosPage() {
           )
           .order("created_at", { ascending: false }),
         "Loading photos"
-      );
+      ) as { data: Photo[] | null; error: { message?: string } | null };
+      const { data, error: fetchError } = photosResult;
 
       if (fetchError) {
         console.error("Supabase error fetching photos:", fetchError);

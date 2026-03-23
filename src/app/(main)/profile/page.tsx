@@ -35,14 +35,23 @@ export default function ProfilePage() {
         const user = session?.user;
         
         if (user) {
-          const { data: profile } = await withTimeout(
+          const profileResult = await withTimeout(
             supabase
               .from('profiles')
               .select('*')
               .eq('id', user.id)
               .maybeSingle(),
             "Loading profile"
-          );
+          ) as {
+            data: {
+              name: string | null;
+              role: string | null;
+              team: string | null;
+              bio: string | null;
+              avatar_url: string | null;
+            } | null;
+          };
+          const { data: profile } = profileResult;
             
           if (profile) {
             setName(profile.name || "");

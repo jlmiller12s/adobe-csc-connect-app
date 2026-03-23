@@ -48,10 +48,11 @@ export default function ChatPage() {
         setCurrentUser(user || null);
 
         // Load channels
-        const { data: channelsData, error } = await withTimeout(
+        const channelsResult = await withTimeout(
           supabase.from('channels').select('*').order('created_at'),
           "Loading chat channels"
-        );
+        ) as { data: Channel[] | null; error: { message?: string } | null };
+        const { data: channelsData, error } = channelsResult;
         if (error) {
           console.error('Error loading channels:', error);
           setInitError(error.message || "Failed to load chat channels.");
@@ -78,14 +79,15 @@ export default function ChatPage() {
     async function loadMessages() {
       if (!selectedChannel) return;
       
-      const { data } = await withTimeout(
+      const messagesResult = await withTimeout(
         supabase
           .from('messages')
           .select(`*, profiles(name, avatar_url)`)
           .eq('channel_id', selectedChannel.id)
           .order('created_at', { ascending: true }),
         "Loading channel messages"
-      );
+      ) as { data: Message[] | null };
+      const { data } = messagesResult;
         
       if (data) setMessages(data as unknown as Message[]);
 

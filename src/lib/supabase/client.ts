@@ -6,7 +6,7 @@ let sessionPromise: Promise<any> | null = null
 const DEFAULT_TIMEOUT_MS = 15000
 
 export function withTimeout<T>(
-  promise: Promise<T>,
+  promise: PromiseLike<T>,
   label: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<T> {
@@ -15,7 +15,7 @@ export function withTimeout<T>(
       reject(new Error(`${label} timed out after ${timeoutMs}ms`))
     }, timeoutMs)
 
-    promise
+    Promise.resolve(promise)
       .then((result) => {
         clearTimeout(timeoutId)
         resolve(result)

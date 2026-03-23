@@ -22,10 +22,11 @@ export function Sidebar() {
         );
         const user = session?.user;
         if (user) {
-          const { data } = await withTimeout(
+          const profileResult = await withTimeout(
             supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
             "Loading sidebar profile"
-          );
+          ) as { data: ProfileData };
+          const { data } = profileResult;
           if (data) setProfile(data);
         }
       } catch (error) {

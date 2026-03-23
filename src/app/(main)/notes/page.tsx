@@ -49,13 +49,14 @@ export default function NotesPage() {
         const user = session?.user;
         setCurrentUser(user || null);
 
-        const { data, error } = await withTimeout(
+        const notesResult = await withTimeout(
           supabase
             .from("notes")
             .select("*, profiles(name, avatar_url)")
             .order("updated_at", { ascending: false }),
           "Loading notes"
-        );
+        ) as { data: Note[] | null; error: { message?: string } | null };
+        const { data, error } = notesResult;
 
         if (error) {
           console.error("Error fetching notes:", error);

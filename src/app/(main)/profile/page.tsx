@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
-import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
+import { useEffect, useState, useRef } from "react";
+import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Camera, Loader2, LogOut, X } from "lucide-react";
@@ -20,7 +20,7 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   const router = useRouter();
 
   useEffect(() => {
@@ -28,20 +28,18 @@ export default function ProfilePage() {
       try {
         setLoading(true);
         setLoadError(null);
-        const { data: { session } } = await withTimeout(
-          getSharedSession(),
-          "Loading profile session"
-        );
+        const { data: { session } } = await getSharedSession();
         const user = session?.user;
         
         if (user) {
-          const profileResult = await withTimeout(
-            supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', user.id)
-              .maybeSingle(),
-            "Loading profile"
+          const profileResult = await runSupabaseOperation(
+            "Loading profile",
+            (client) =>
+              client
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .maybeSingle()
           ) as {
             data: {
               name: string | null;

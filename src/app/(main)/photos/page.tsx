@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Plus, Loader2, X, ChevronLeft, ChevronRight, Upload, ImageIcon, Trash2 } from "lucide-react";
-import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
+import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,7 +84,7 @@ export default function PhotosPage() {
   const [containerWidth, setContainerWidth] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
 
   // -----------------------------------------------------------------------
   // Measure container
@@ -110,17 +110,18 @@ export default function PhotosPage() {
       setLoading(true);
       setError(null);
 
-      const photosResult = await withTimeout(
-        supabase
-          .from("photos")
-          .select(
+      const photosResult = await runSupabaseOperation(
+        "Loading photos",
+        (client) =>
+          client
+            .from("photos")
+            .select(
+              `
+              *,
+              profiles (name, role, avatar_url)
             `
-            *,
-            profiles (name, role, avatar_url)
-          `
-          )
-          .order("created_at", { ascending: false }),
-        "Loading photos"
+            )
+            .order("created_at", { ascending: false })
       ) as { data: Photo[] | null; error: { message?: string } | null };
       const { data, error: fetchError } = photosResult;
 
@@ -148,7 +149,7 @@ export default function PhotosPage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     fetchPhotos();

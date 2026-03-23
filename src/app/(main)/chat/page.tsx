@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
-import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
+import { useEffect, useState, useRef } from "react";
+import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
 import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle } from "lucide-react";
 
 type Channel = { id: string; name: string };
@@ -23,7 +23,7 @@ export default function ChatPage() {
   const [initError, setInitError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
 
   // Scroll to bottom helper
   const scrollToBottom = () => {
@@ -40,17 +40,15 @@ export default function ChatPage() {
       try {
         setInitError(null);
         // Get current user
-        const { data: { session } } = await withTimeout(
-          getSharedSession(),
-          "Loading chat session"
-        );
+        const { data: { session } } = await getSharedSession();
         const user = session?.user;
         setCurrentUser(user || null);
 
         // Load channels
-        const channelsResult = await withTimeout(
-          supabase.from('channels').select('*').order('created_at'),
+        const channelsResult = await runSupabaseOperation(
           "Loading chat channels"
+          ,
+          (client) => client.from('channels').select('*').order('created_at')
         ) as { data: Channel[] | null; error: { message?: string } | null };
         const { data: channelsData, error } = channelsResult;
         if (error) {
@@ -79,13 +77,14 @@ export default function ChatPage() {
     async function loadMessages() {
       if (!selectedChannel) return;
       
-      const messagesResult = await withTimeout(
-        supabase
-          .from('messages')
-          .select(`*, profiles(name, avatar_url)`)
-          .eq('channel_id', selectedChannel.id)
-          .order('created_at', { ascending: true }),
-        "Loading channel messages"
+      const messagesResult = await runSupabaseOperation(
+        "Loading channel messages",
+        (client) =>
+          client
+            .from('messages')
+            .select(`*, profiles(name, avatar_url)`)
+            .eq('channel_id', selectedChannel.id)
+            .order('created_at', { ascending: true })
       ) as { data: Message[] | null };
       const { data } = messagesResult;
         

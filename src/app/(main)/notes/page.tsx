@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { FileText, Plus, Search, X, Loader2, Trash2, Save, ArrowLeft, Globe, Lock } from "lucide-react";
-import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
+import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
 
 type Note = {
   id: string;
@@ -35,26 +35,24 @@ export default function NotesPage() {
   const [editShared, setEditShared] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
 
   // Fetch user + notes
   useEffect(() => {
     async function init() {
       try {
         setInitError(null);
-        const { data: { session } } = await withTimeout(
-          getSharedSession(),
-          "Loading notes session"
-        );
+        const { data: { session } } = await getSharedSession();
         const user = session?.user;
         setCurrentUser(user || null);
 
-        const notesResult = await withTimeout(
-          supabase
-            .from("notes")
-            .select("*, profiles(name, avatar_url)")
-            .order("updated_at", { ascending: false }),
-          "Loading notes"
+        const notesResult = await runSupabaseOperation(
+          "Loading notes",
+          (client) =>
+            client
+              .from("notes")
+              .select("*, profiles(name, avatar_url)")
+              .order("updated_at", { ascending: false })
         ) as { data: Note[] | null; error: { message?: string } | null };
         const { data, error } = notesResult;
 

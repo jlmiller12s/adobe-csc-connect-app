@@ -3,28 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Image as ImageIcon, MessageSquare, Notebook, Calendar } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
+import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
 
 type ProfileData = { name: string; avatar_url: string | null } | null;
 
 export function Sidebar() {
   const pathname = usePathname();
   const [profile, setProfile] = useState<ProfileData>(null);
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
 
   useEffect(() => {
     async function loadProfile() {
       try {
-        const { data: { session } } = await withTimeout(
-          getSharedSession(),
-          "Loading sidebar session"
-        );
+        const { data: { session } } = await getSharedSession();
         const user = session?.user;
         if (user) {
-          const profileResult = await withTimeout(
-            supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-            "Loading sidebar profile"
+          const profileResult = await runSupabaseOperation(
+            "Loading sidebar profile",
+            (client) => client.from("profiles").select("*").eq("id", user.id).maybeSingle()
           ) as { data: ProfileData };
           const { data } = profileResult;
           if (data) setProfile(data);

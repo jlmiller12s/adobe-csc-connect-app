@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { createClient, getSharedSession } from "@/lib/supabase/client";
+import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
 import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle } from "lucide-react";
 
 type Channel = { id: string; name: string };
@@ -20,6 +20,7 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = useMemo(() => createClient(), []);
@@ -37,21 +38,30 @@ export default function ChatPage() {
   useEffect(() => {
     async function initializeChat() {
       try {
+        setInitError(null);
         // Get current user
-        const { data: { session } } = await getSharedSession();
+        const { data: { session } } = await withTimeout(
+          getSharedSession(),
+          "Loading chat session"
+        );
         const user = session?.user;
         setCurrentUser(user || null);
 
         // Load channels
-        const { data: channelsData, error } = await supabase.from('channels').select('*').order('created_at');
+        const { data: channelsData, error } = await withTimeout(
+          supabase.from('channels').select('*').order('created_at'),
+          "Loading chat channels"
+        );
         if (error) {
           console.error('Error loading channels:', error);
+          setInitError(error.message || "Failed to load chat channels.");
         } else if (channelsData && channelsData.length > 0) {
           setChannels(channelsData);
           setSelectedChannel(channelsData[0]);
         }
       } catch (err) {
         console.error('Chat init error:', err);
+        setInitError(err instanceof Error ? err.message : "Failed to initialize chat.");
       } finally {
         setLoading(false);
       }
@@ -68,11 +78,14 @@ export default function ChatPage() {
     async function loadMessages() {
       if (!selectedChannel) return;
       
-      const { data } = await supabase
-        .from('messages')
-        .select(`*, profiles(name, avatar_url)`)
-        .eq('channel_id', selectedChannel.id)
-        .order('created_at', { ascending: true });
+      const { data } = await withTimeout(
+        supabase
+          .from('messages')
+          .select(`*, profiles(name, avatar_url)`)
+          .eq('channel_id', selectedChannel.id)
+          .order('created_at', { ascending: true }),
+        "Loading channel messages"
+      );
         
       if (data) setMessages(data as unknown as Message[]);
 
@@ -137,6 +150,15 @@ export default function ChatPage() {
 
   if (loading) {
      return <div className="h-[calc(100vh-80px)] md:h-screen flex items-center justify-center bg-gray-50 dark:bg-[#09090b]"><Loader2 className="animate-spin text-adobe-red w-8 h-8"/></div>;
+  }
+
+  if (initError) {
+    return (
+      <div className="h-[calc(100vh-80px)] md:h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#09090b] px-6">
+        <p className="text-red-500 text-sm font-medium">Unable to load chat</p>
+        <p className="text-gray-500 text-center text-xs max-w-sm mt-2">{initError}</p>
+      </div>
+    );
   }
 
   if (channels.length === 0) {

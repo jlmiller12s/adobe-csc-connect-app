@@ -3,6 +3,29 @@ import { createBrowserClient } from '@supabase/ssr'
 let client: ReturnType<typeof createBrowserClient> | undefined
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let sessionPromise: Promise<any> | null = null
+const DEFAULT_TIMEOUT_MS = 15000
+
+export function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+
+    promise
+      .then((result) => {
+        clearTimeout(timeoutId)
+        resolve(result)
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId)
+        reject(error)
+      })
+  })
+}
 
 export function createClient() {
   if (client) return client
@@ -19,12 +42,12 @@ export function getSharedSession() {
   const supabase = createClient()
   if (sessionPromise) return sessionPromise
   
-  sessionPromise = supabase.auth.getSession()
-  
-  // Clear the cached promise shortly after to allow fresh fetches later
-  setTimeout(() => {
+  sessionPromise = withTimeout(
+    supabase.auth.getSession(),
+    'Supabase session request'
+  ).finally(() => {
     sessionPromise = null
-  }, 1000)
+  })
   
   return sessionPromise
 }

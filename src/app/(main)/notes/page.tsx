@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { FileText, Plus, Search, X, Loader2, Trash2, Save, ArrowLeft, Globe, Lock } from "lucide-react";
-import { createClient, getSharedSession } from "@/lib/supabase/client";
+import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
 
 type Note = {
   id: string;
@@ -21,6 +21,7 @@ type FilterTab = "all" | "mine" | "shared";
 export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
@@ -40,22 +41,31 @@ export default function NotesPage() {
   useEffect(() => {
     async function init() {
       try {
-        const { data: { session } } = await getSharedSession();
+        setInitError(null);
+        const { data: { session } } = await withTimeout(
+          getSharedSession(),
+          "Loading notes session"
+        );
         const user = session?.user;
         setCurrentUser(user || null);
 
-        const { data, error } = await supabase
-          .from("notes")
-          .select("*, profiles(name, avatar_url)")
-          .order("updated_at", { ascending: false });
+        const { data, error } = await withTimeout(
+          supabase
+            .from("notes")
+            .select("*, profiles(name, avatar_url)")
+            .order("updated_at", { ascending: false }),
+          "Loading notes"
+        );
 
         if (error) {
           console.error("Error fetching notes:", error);
+          setInitError(error.message || "Failed to load notes.");
         } else {
           setNotes((data || []) as unknown as Note[]);
         }
       } catch (err) {
         console.error("Notes init error:", err);
+        setInitError(err instanceof Error ? err.message : "Failed to initialize notes.");
       } finally {
         setLoading(false);
       }
@@ -288,6 +298,15 @@ export default function NotesPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#09090b]">
         <Loader2 className="animate-spin text-adobe-red w-8 h-8" />
+      </div>
+    );
+  }
+
+  if (initError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#09090b] px-6">
+        <p className="text-red-500 text-sm font-medium">Unable to load notes</p>
+        <p className="text-gray-500 text-center text-xs max-w-sm mt-2">{initError}</p>
       </div>
     );
   }

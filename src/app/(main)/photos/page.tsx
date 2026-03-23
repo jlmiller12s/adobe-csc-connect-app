@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Plus, Loader2, X, ChevronLeft, ChevronRight, Upload, ImageIcon, Trash2 } from "lucide-react";
-import { createClient, getSharedSession } from "@/lib/supabase/client";
+import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -110,15 +110,18 @@ export default function PhotosPage() {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from("photos")
-        .select(
+      const { data, error: fetchError } = await withTimeout(
+        supabase
+          .from("photos")
+          .select(
+            `
+            *,
+            profiles (name, role, avatar_url)
           `
-          *,
-          profiles (name, role, avatar_url)
-        `
-        )
-        .order("created_at", { ascending: false });
+          )
+          .order("created_at", { ascending: false }),
+        "Loading photos"
+      );
 
       if (fetchError) {
         console.error("Supabase error fetching photos:", fetchError);

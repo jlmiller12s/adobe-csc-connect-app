@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { createClient, getSharedSession } from "@/lib/supabase/client";
+import { createClient, getSharedSession, withTimeout } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Camera, Loader2, LogOut, X } from "lucide-react";
@@ -14,6 +14,7 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -24,26 +25,39 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function getProfile() {
-      setLoading(true);
-      const { data: { session } } = await getSharedSession();
-      const user = session?.user;
-      
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
-          
-        if (profile) {
-          setName(profile.name || "");
-          setRole(profile.role || "");
-          setTeam(profile.team || "");
-          setBio(profile.bio || "");
-          setAvatarUrl(profile.avatar_url || null);
+      try {
+        setLoading(true);
+        setLoadError(null);
+        const { data: { session } } = await withTimeout(
+          getSharedSession(),
+          "Loading profile session"
+        );
+        const user = session?.user;
+        
+        if (user) {
+          const { data: profile } = await withTimeout(
+            supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .maybeSingle(),
+            "Loading profile"
+          );
+            
+          if (profile) {
+            setName(profile.name || "");
+            setRole(profile.role || "");
+            setTeam(profile.team || "");
+            setBio(profile.bio || "");
+            setAvatarUrl(profile.avatar_url || null);
+          }
         }
+      } catch (err) {
+        console.error("Profile load error:", err);
+        setLoadError(err instanceof Error ? err.message : "Failed to load profile.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     
     getProfile();
@@ -168,6 +182,11 @@ export default function ProfilePage() {
         </div>
 
         <div className="bg-zinc-900 rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+          {loadError && (
+            <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-200">
+              {loadError}
+            </div>
+          )}
           {/* Avatar Section */}
           <div className="flex flex-col items-center mb-8 pb-8 border-b border-white/10">
             <div className="relative group mb-4">

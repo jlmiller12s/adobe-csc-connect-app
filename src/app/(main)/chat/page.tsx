@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
-import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle, X } from "lucide-react";
+import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle, X, Trash2 } from "lucide-react";
 
 type Channel = { id: string; name: string };
 type Message = {
@@ -33,7 +33,6 @@ function InlineEmojiPicker({ onEmojiSelect }: { onEmojiSelect: (emoji: string) =
 
   return (
     <div className="w-72 max-h-80 flex flex-col bg-white dark:bg-[#1a1a1a] rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-800">
-      {/* Category tabs */}
       <div className="flex overflow-x-auto border-b border-gray-100 dark:border-gray-800 shrink-0 scrollbar-hide">
         {categories.map((cat) => (
           <button
@@ -45,7 +44,6 @@ function InlineEmojiPicker({ onEmojiSelect }: { onEmojiSelect: (emoji: string) =
           </button>
         ))}
       </div>
-      {/* Emoji grid */}
       <div className="overflow-y-auto p-2 grid grid-cols-8 gap-0.5">
         {EMOJI_CATEGORIES[activeCategory].map((emoji, i) => (
           <button
@@ -61,6 +59,47 @@ function InlineEmojiPicker({ onEmojiSelect }: { onEmojiSelect: (emoji: string) =
   );
 }
 
+// Delete confirmation modal
+function DeleteModal({ onConfirm, onCancel, isDeleting }: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div
+        className="relative bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-2xl p-6 w-full max-w-sm border border-gray-200/50 dark:border-white/10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 mx-auto mb-4">
+          <Trash2 className="text-red-500" size={22} />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-1">Delete Message</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
+          This message will be permanently removed from the conversation.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
@@ -70,25 +109,28 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   
-  // Enhancement state
+  // Emoji / image state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  
+
+  // Delete message state
+  const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [activeContextMenu, setActiveContextMenu] = useState<string | null>(null); // message id
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const supabase = createClient();
 
-  // Scroll to bottom helper
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  useEffect(() => { scrollToBottom(); }, [messages]);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -99,6 +141,13 @@ export default function ChatPage() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close context menus when clicking outside
+  useEffect(() => {
+    function handleWindowClick() { setActiveContextMenu(null); }
+    window.addEventListener("click", handleWindowClick);
+    return () => window.removeEventListener("click", handleWindowClick);
   }, []);
 
   // Load User and Channels
@@ -160,6 +209,14 @@ export default function ChatPage() {
               .from('profiles').select('name, avatar_url').eq('id', payload.new.user_id).maybeSingle();
             const newMsg = { ...payload.new, profiles: profileData || { name: 'Unknown', avatar_url: null } };
             setMessages((prev) => [...prev, newMsg as Message]);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'messages', filter: `channel_id=eq.${selectedChannel.id}` },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            setMessages((prev) => prev.filter((m) => m.id !== payload.old.id));
           }
         )
         .subscribe();
@@ -228,6 +285,49 @@ export default function ChatPage() {
     }
   };
 
+  // Delete a message
+  const handleDeleteMessage = async () => {
+    if (!messageToDelete) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageToDelete.id);
+      if (error) throw error;
+      // Optimistically remove from local state
+      setMessages((prev) => prev.filter((m) => m.id !== messageToDelete.id));
+      setMessageToDelete(null);
+    } catch (err) {
+      console.error("Error deleting message:", err);
+      alert("Failed to delete message.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Long-press handlers for mobile
+  const handleLongPressStart = useCallback((msg: Message) => {
+    if (msg.user_id !== currentUser?.id) return;
+    longPressTimerRef.current = setTimeout(() => {
+      setMessageToDelete(msg);
+    }, 500);
+  }, [currentUser?.id]);
+
+  const handleLongPressEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // Desktop context menu toggle
+  const handleDesktopContextMenu = useCallback((e: React.MouseEvent, msg: Message) => {
+    if (msg.user_id !== currentUser?.id) return;
+    e.stopPropagation();
+    setActiveContextMenu((prev) => (prev === msg.id ? null : msg.id));
+  }, [currentUser?.id]);
+
   if (loading) {
     return <div className="h-[calc(100vh-80px)] md:h-screen flex items-center justify-center bg-gray-50 dark:bg-[#09090b]"><Loader2 className="animate-spin text-adobe-red w-8 h-8"/></div>;
   }
@@ -255,6 +355,16 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-80px)] md:h-screen bg-gray-50 dark:bg-[#09090b]">
+      
+      {/* Delete confirmation modal */}
+      {messageToDelete && (
+        <DeleteModal
+          onConfirm={handleDeleteMessage}
+          onCancel={() => setMessageToDelete(null)}
+          isDeleting={isDeleting}
+        />
+      )}
+
       {/* Channels Sidebar */}
       <div className="hidden md:flex flex-col w-72 bg-white/50 dark:bg-black/20 backdrop-blur-3xl border-r border-gray-200/50 dark:border-white/5">
         <div className="p-5 border-b border-gray-200/50 dark:border-white/5 flex justify-between items-center bg-white/40 dark:bg-white/5">
@@ -303,6 +413,8 @@ export default function ChatPage() {
           {messages.map((msg) => {
             const isMe = msg.user_id === currentUser?.id;
             const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const showContextMenu = activeContextMenu === msg.id;
+
             return (
               <div key={msg.id} className={`flex items-end space-x-2 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
                 <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 mb-1 border border-white/10 flex items-center justify-center bg-gray-800">
@@ -313,26 +425,67 @@ export default function ChatPage() {
                     <span className="text-xs text-white font-bold">{msg.profiles?.name?.charAt(0) || '?'}</span>
                   )}
                 </div>
-                <div className="max-w-[75%] flex flex-col">
-                  <span className={`text-xs text-gray-400 ${isMe ? 'mr-1 text-right self-end' : 'ml-1'} mb-1 block`}>
+
+                {/* Message bubble wrapper with relative positioning for context menu */}
+                <div className={`max-w-[75%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                  <span className={`text-xs text-gray-400 ${isMe ? 'mr-1 text-right' : 'ml-1'} mb-1 block`}>
                     {!isMe && <span className="font-medium text-gray-300 mr-2">{msg.profiles?.name}</span>}
                     {timeStr}
                   </span>
                   
-                  <div className={`flex flex-col gap-2 ${isMe ? 'items-end' : 'items-start'}`}>
-                    {msg.image_url && (
-                      <div className="rounded-2xl overflow-hidden border border-gray-200/50 dark:border-white/10 shadow-sm max-w-[240px] md:max-w-sm">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={msg.image_url} alt="Attachment" className="w-full h-auto object-cover" />
-                      </div>
-                    )}
-                    {msg.content && (
-                      <div className={`p-4 rounded-2xl text-sm shadow-md break-words max-w-full ${
-                        isMe 
-                          ? 'bg-gradient-to-r from-adobe-red to-orange-500 rounded-br-sm text-white shadow-adobe-red/20' 
-                          : 'bg-white dark:bg-[#18181b] rounded-bl-sm dark:text-gray-200 border border-gray-100 dark:border-white/5'
-                      }`}>
-                        {msg.content}
+                  <div className="relative group">
+                    <div
+                      className="flex flex-col gap-2"
+                      // Mobile: long-press to delete
+                      onTouchStart={() => handleLongPressStart(msg)}
+                      onTouchEnd={handleLongPressEnd}
+                      onTouchMove={handleLongPressEnd}
+                    >
+                      {msg.image_url && (
+                        <div className="rounded-2xl overflow-hidden border border-gray-200/50 dark:border-white/10 shadow-sm max-w-[240px] md:max-w-sm">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={msg.image_url} alt="Attachment" className="w-full h-auto object-cover" />
+                        </div>
+                      )}
+                      {msg.content && (
+                        <div className={`p-4 rounded-2xl text-sm shadow-md break-words max-w-full ${
+                          isMe 
+                            ? 'bg-gradient-to-r from-adobe-red to-orange-500 rounded-br-sm text-white shadow-adobe-red/20' 
+                            : 'bg-white dark:bg-[#18181b] rounded-bl-sm dark:text-gray-200 border border-gray-100 dark:border-white/5'
+                        }`}>
+                          {msg.content}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Desktop: hover delete button (only for own messages) */}
+                    {isMe && (
+                      <div className="relative">
+                        <button
+                          onClick={(e) => handleDesktopContextMenu(e, msg)}
+                          className="hidden md:flex absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-7 h-7 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors shadow-sm"
+                          title="Delete message"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+
+                        {/* Desktop context popup */}
+                        {showContextMenu && (
+                          <div
+                            className="hidden md:block absolute right-0 bottom-full mb-2 z-40"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="bg-white dark:bg-[#1c1c1e] rounded-xl shadow-2xl border border-gray-200/50 dark:border-white/10 overflow-hidden min-w-[140px]">
+                              <button
+                                onClick={() => { setMessageToDelete(msg); setActiveContextMenu(null); }}
+                                className="flex items-center gap-2.5 w-full px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium"
+                              >
+                                <Trash2 size={15} />
+                                Delete Message
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

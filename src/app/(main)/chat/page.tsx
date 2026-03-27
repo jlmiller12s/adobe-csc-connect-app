@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
-import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle } from "lucide-react";
+import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle, X } from "lucide-react";
+import EmojiPicker from 'emoji-picker-react';
 
 type Channel = { id: string; name: string };
 type Message = {
@@ -10,6 +11,7 @@ type Message = {
   content: string;
   created_at: string;
   user_id: string;
+  image_url: string | null;
   profiles: { name: string; avatar_url: string | null };
 };
 
@@ -22,7 +24,14 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   
+  // New State for enhancements
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
   // Scroll to bottom helper
@@ -129,23 +138,80 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChannel]);
 
+  // Handle Image Selection
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setSelectedImage(file);
+      setImagePreviewUrl(URL.createObjectURL(file));
+      if (fileInputRef.current) {
+         fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+      setImagePreviewUrl(null);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedChannel || !currentUser) return;
+    if ((!newMessage.trim() && !selectedImage) || !selectedChannel || !currentUser || isSending) return;
 
-    const content = newMessage;
-    setNewMessage(""); // Optimistic clear
+    setIsSending(true);
+    let uploadedImageUrl = null;
 
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        channel_id: selectedChannel.id,
-        user_id: currentUser.id,
-        content: content
-      });
+    try {
+      // 1. Upload Image (if any)
+      if (selectedImage) {
+        const fileExt = selectedImage.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+        const filePath = `chat/${selectedChannel.id}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('photos')
+          .upload(filePath, selectedImage);
 
-    if (error) {
-      console.error("Error sending message:", error);
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('photos')
+          .getPublicUrl(filePath);
+
+        uploadedImageUrl = publicUrl;
+      }
+
+      // 2. Insert Message
+      const content = newMessage.trim();
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          channel_id: selectedChannel.id,
+          user_id: currentUser.id,
+          content: content || null,
+          image_url: uploadedImageUrl
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      // Clean up after success
+      setNewMessage("");
+      removeSelectedImage();
+      setShowEmojiPicker(false);
+      
+    } catch (err) {
+      console.error("Error sending message:", err);
+      alert("Failed to send message. Please try again.");
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -233,18 +299,32 @@ export default function ChatPage() {
                     <span className="text-xs text-white font-bold">{msg.profiles?.name?.charAt(0) || '?'}</span>
                   )}
                 </div>
-                <div className="max-w-[75%]">
-                  <span className={`text-xs text-gray-400 ${isMe ? 'mr-1 text-right' : 'ml-1'} mb-1 block`}>
+                <div className="max-w-[75%] flex flex-col items-end">
+                  <span className={`text-xs text-gray-400 ${isMe ? 'mr-1 text-right' : 'ml-1 self-start'} mb-1 block`}>
                     {!isMe && <span className="font-medium text-gray-300 mr-2">{msg.profiles?.name}</span>}
                     {timeStr}
                   </span>
-                  <div className={`p-4 rounded-2xl text-sm shadow-md break-words ${
-                    isMe 
-                      ? 'bg-gradient-to-r from-adobe-red to-orange-500 rounded-br-sm text-white shadow-adobe-red/20' 
-                      : 'bg-white dark:bg-[#18181b] rounded-bl-sm dark:text-gray-200 border border-gray-100 dark:border-white/5'
-                  }`}>
-                    {msg.content}
+                  
+                  <div className={`flex flex-col gap-2 ${isMe ? 'items-end' : 'items-start'}`}>
+                    {/* Render Image if exists */}
+                    {msg.image_url && (
+                      <div className="rounded-2xl overflow-hidden border border-gray-200/50 dark:border-white/10 shadow-sm max-w-[240px] md:max-w-sm">
+                        <img src={msg.image_url} alt="Attachment" className="w-full h-auto object-cover" loading="lazy" />
+                      </div>
+                    )}
+                    
+                    {/* Render Text Content if exists */}
+                    {msg.content && (
+                      <div className={`p-4 rounded-2xl text-sm shadow-md break-words max-w-full ${
+                        isMe 
+                          ? 'bg-gradient-to-r from-adobe-red to-orange-500 rounded-br-sm text-white shadow-adobe-red/20' 
+                          : 'bg-white dark:bg-[#18181b] rounded-bl-sm dark:text-gray-200 border border-gray-100 dark:border-white/5'
+                      }`}>
+                        {msg.content}
+                      </div>
+                    )}
                   </div>
+
                 </div>
               </div>
             );
@@ -252,30 +332,91 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-4 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/5 pb-8 md:pb-4">
-          <form onSubmit={handleSendMessage} className="flex items-center bg-gray-100 dark:bg-[#18181b] rounded-full px-2 py-2 border border-transparent focus-within:border-adobe-red/30 focus-within:bg-white dark:focus-within:bg-[#18181b] transition-all duration-300">
-            <button type="button" className="p-2 text-gray-400 hover:text-adobe-red transition-colors">
-              <ImageIcon size={20} />
-            </button>
-            <input 
-              type="text" 
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={`Message #${selectedChannel?.name || '...'}`} 
-              className="flex-1 bg-transparent focus:outline-none text-sm px-2 dark:text-white"
-            />
-            <button type="button" className="p-2 text-gray-400 hover:text-adobe-red transition-colors mr-1">
-              <Smile size={20} />
-            </button>
-            <button 
-               type="submit" 
-               disabled={!newMessage.trim()} 
-               className="w-9 h-9 rounded-full bg-adobe-red text-white flex items-center justify-center hover:bg-adobe-darkRed transition-colors shadow-sm shadow-adobe-red/30 disabled:opacity-50"
-            >
-              <Send size={16} className="ml-0.5" />
-            </button>
-          </form>
+        {/* Input Area */}
+        <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/5 pb-8 md:pb-4 flex flex-col relative w-full">
+          
+          {/* Image Preview Area */}
+          {imagePreviewUrl && (
+             <div className="px-6 py-3 border-b border-gray-100 dark:border-white/5 flex items-center">
+                <div className="relative inline-block">
+                  <img src={imagePreviewUrl} alt="Preview" className="h-20 w-20 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm" />
+                  <button 
+                    onClick={removeSelectedImage}
+                    className="absolute -top-2 -right-2 bg-black text-white rounded-full p-1 shadow-md hover:bg-gray-800 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+             </div>
+          )}
+
+          {/* Emoji Picker Popover */}
+          {showEmojiPicker && (
+            <div className="absolute bottom-full right-4 mb-2 shadow-2xl z-50 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800">
+               <EmojiPicker 
+                 theme={"auto" as const} 
+                 onEmojiClick={(emojiData: any) => {
+                    setNewMessage(prev => prev + emojiData.emoji);
+                 }} 
+               />
+            </div>
+          )}
+
+          <div className="px-4 pt-4">
+            <form onSubmit={handleSendMessage} className="flex items-center bg-gray-100 dark:bg-[#18181b] rounded-full px-2 py-2 border border-transparent focus-within:border-adobe-red/30 focus-within:bg-white dark:focus-within:bg-[#18181b] transition-all duration-300">
+              
+              {/* Hidden File Input */}
+              <input 
+                type="file" 
+                accept="image/*,video/mp4,video/quicktime,.gif" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleImageChange}
+              />
+
+              <button 
+                type="button" 
+                className="p-2 text-gray-400 hover:text-adobe-red transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSending}
+              >
+                <ImageIcon size={20} />
+              </button>
+              
+              <input 
+                type="text" 
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder={selectedImage ? "Add a caption..." : `Message #${selectedChannel?.name || '...'}`} 
+                className="flex-1 bg-transparent focus:outline-none text-sm px-2 dark:text-white"
+                disabled={isSending}
+              />
+              
+              <button 
+                type="button" 
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`p-2 transition-colors mr-1 ${showEmojiPicker ? 'text-adobe-red' : 'text-gray-400 hover:text-adobe-red'}`}
+                disabled={isSending}
+              >
+                <Smile size={20} />
+              </button>
+              
+              <button 
+                 type="submit" 
+                 disabled={(!newMessage.trim() && !selectedImage) || isSending} 
+                 className={`w-9 h-9 rounded-full bg-adobe-red text-white flex items-center justify-center transition-colors shadow-sm shadow-adobe-red/30 ${
+                   isSending || (!newMessage.trim() && !selectedImage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-adobe-darkRed'
+                 }`}
+              >
+                {isSending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Send size={16} className="ml-0.5" />
+                )}
+              </button>
+            </form>
+          </div>
+          
         </div>
       </div>
     </div>

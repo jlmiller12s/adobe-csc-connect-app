@@ -71,8 +71,9 @@ create table public.messages (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table public.messages enable row level security;
-create policy "Messages are viewable by everyone." on public.messages for select using (true);
-create policy "Users can insert their own messages." on public.messages for insert with check (auth.uid() = user_id);
+create policy "Messages are viewable by everyone.\" on public.messages for select using (true);
+create policy \"Users can insert their own messages.\" on public.messages for insert with check (auth.uid() = user_id);
+create policy \"Users can delete own messages.\" on public.messages for delete using (auth.uid() = user_id);
 
 -- Enable realtime for messages
 alter publication supabase_realtime add table public.messages;

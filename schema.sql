@@ -127,3 +127,18 @@ create policy "Announcements are viewable by everyone." on public.announcements 
 -- This allows anyone who is logged in to upload files to the "photos" bucket
 create policy "Allow authenticated uploads" on storage.objects for insert to authenticated with check ( bucket_id = 'photos' );
 create policy "Allow authenticated updates" on storage.objects for update to authenticated using ( bucket_id = 'photos' );
+
+-- 9. Push Subscriptions (Web Push Notifications)
+-- Run this in your Supabase SQL Editor to enable push notifications:
+create table if not exists public.push_subscriptions (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.profiles(id) not null,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table public.push_subscriptions enable row level security;
+create policy "Users can manage their own push subscriptions." on public.push_subscriptions for all using (auth.uid() = user_id);
+-- Allow service role (API routes) to read all subscriptions for sending:
+create policy "Service role can read all push subscriptions." on public.push_subscriptions for select using (true);

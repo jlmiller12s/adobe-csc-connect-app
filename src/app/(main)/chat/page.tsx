@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
 import { Hash, Plus, Image as ImageIcon, Smile, Send, Loader2, MessageCircle, X } from "lucide-react";
-import EmojiPicker from 'emoji-picker-react';
 
 type Channel = { id: string; name: string };
 type Message = {
@@ -15,6 +14,53 @@ type Message = {
   profiles: { name: string; avatar_url: string | null };
 };
 
+// A lightweight emoji picker built with no external dependencies
+const EMOJI_CATEGORIES: Record<string, string[]> = {
+  "Smileys": ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥸","🤩","🥳"],
+  "Gestures": ["👋","🤚","🖐","✋","🖖","👌","🤌","🤏","✌","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝","👍","👎","✊","👊","🤛","🤜","👏","🙌","🫶","👐","🤲","🤝","🙏"],
+  "People": ["👶","🧒","👦","👧","🧑","👱","👨","🧔","👩","🧓","👴","👵","🧕","👮","💂","🕵","👷","🤴","👸","👰","🤵","🧙","🧚","🧛","🧟","🧞","🧜","🧝","🦸","🦹"],
+  "Nature": ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐙","🐵","🦄","🐝","🐛","🦋","🐌","🐞","🐜","🦟","🦗","🕷","🦂","🐢","🐍","🦎"],
+  "Food": ["🍎","🍊","🍋","🍇","🍓","🍈","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥬","🥒","🌶","🌽","🥕","🧄","🧅","🥔","🍠","🥐","🥯","🍞","🥖","🥨","🧀"],
+  "Activities": ["⚽","🏀","🏈","⚾","🥎","🎾","🏐","🏉","🥏","🎱","🪀","🏓","🏸","🏒","🏑","🥍","🏏","🪃","🥅","⛳","🪁","🏹","🎣","🤿","🥊","🥋","🎽","🛹","🛼","🛷"],
+  "Travel": ["🚗","🚕","🚙","🚌","🚎","🏎","🚓","🚑","🚒","🚐","🛻","🚚","🚛","🚜","🏍","🛵","🛺","🚲","🛴","🛹","🛼","🚏","🛣","🛤","⛽","🚨","🚥","🚦","🛑","🚧"],
+  "Objects": ["⌚","📱","📲","💻","⌨","🖥","🖨","🖱","🖲","🕹","🗜","💾","💿","📀","📼","📷","📸","📹","🎥","📽","🎞","📞","☎","📟","📠","📺","📻","🧭","⏱","⏲"],
+  "Symbols": ["❤","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣","💕","💞","💓","💗","💖","💘","💝","💟","☮","✝","☪","🕉","☸","✡","🔯","🕎","☯","☦","🛐","⛎"],
+};
+
+function InlineEmojiPicker({ onEmojiSelect }: { onEmojiSelect: (emoji: string) => void }) {
+  const [activeCategory, setActiveCategory] = useState("Smileys");
+  const categories = Object.keys(EMOJI_CATEGORIES);
+
+  return (
+    <div className="w-72 max-h-80 flex flex-col bg-white dark:bg-[#1a1a1a] rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-800">
+      {/* Category tabs */}
+      <div className="flex overflow-x-auto border-b border-gray-100 dark:border-gray-800 shrink-0 scrollbar-hide">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            className={`px-3 py-2 text-xs whitespace-nowrap font-medium transition-colors ${activeCategory === cat ? 'text-adobe-red border-b-2 border-adobe-red' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+      {/* Emoji grid */}
+      <div className="overflow-y-auto p-2 grid grid-cols-8 gap-0.5">
+        {EMOJI_CATEGORIES[activeCategory].map((emoji, i) => (
+          <button
+            key={i}
+            onClick={() => onEmojiSelect(emoji)}
+            className="w-8 h-8 flex items-center justify-center rounded-md text-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ChatPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
@@ -24,7 +70,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   
-  // New State for enhancements
+  // Enhancement state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -32,6 +78,7 @@ export default function ChatPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   // Scroll to bottom helper
@@ -43,43 +90,48 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages]);
 
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Load User and Channels
   useEffect(() => {
     async function initializeChat() {
       try {
         setInitError(null);
-        // Get current user
         const { data: { session } } = await getSharedSession();
         const user = session?.user;
         setCurrentUser(user || null);
 
-        // Load channels
         const channelsResult = await runSupabaseOperation(
-          "Loading chat channels"
-          ,
+          "Loading chat channels",
           (client) => client.from('channels').select('*').order('created_at')
         ) as { data: Channel[] | null; error: { message?: string } | null };
         const { data: channelsData, error } = channelsResult;
         if (error) {
-          console.error('Error loading channels:', error);
           setInitError(error.message || "Failed to load chat channels.");
         } else if (channelsData && channelsData.length > 0) {
           setChannels(channelsData);
           setSelectedChannel(channelsData[0]);
         }
       } catch (err) {
-        console.error('Chat init error:', err);
         setInitError(err instanceof Error ? err.message : "Failed to initialize chat.");
       } finally {
         setLoading(false);
       }
     }
-    
     initializeChat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load messages when channel changes and set up realtime
+  // Load messages & realtime
   useEffect(() => {
     let subscription: ReturnType<typeof supabase.channel>;
 
@@ -89,41 +141,24 @@ export default function ChatPage() {
       const messagesResult = await runSupabaseOperation(
         "Loading channel messages",
         (client) =>
-          client
-            .from('messages')
+          client.from('messages')
             .select(`*, profiles(name, avatar_url)`)
             .eq('channel_id', selectedChannel.id)
             .order('created_at', { ascending: true })
       ) as { data: Message[] | null };
       const { data } = messagesResult;
-        
       if (data) setMessages(data as unknown as Message[]);
 
-      // Realtime subscription for the current channel
       subscription = supabase
         .channel(`messages:channel_id=eq.${selectedChannel.id}`)
         .on(
           'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `channel_id=eq.${selectedChannel.id}`,
-          },
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel_id=eq.${selectedChannel.id}` },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           async (payload: any) => {
-            // Fetch the profile for the new message
             const { data: profileData } = await supabase
-              .from('profiles')
-              .select('name, avatar_url')
-              .eq('id', payload.new.user_id)
-              .maybeSingle();
-              
-            const newMsg = {
-               ...payload.new,
-               profiles: profileData || { name: 'Unknown', avatar_url: null }
-            };
-            
+              .from('profiles').select('name, avatar_url').eq('id', payload.new.user_id).maybeSingle();
+            const newMsg = { ...payload.new, profiles: profileData || { name: 'Unknown', avatar_url: null } };
             setMessages((prev) => [...prev, newMsg as Message]);
           }
         )
@@ -131,22 +166,16 @@ export default function ChatPage() {
     }
 
     loadMessages();
-
-    return () => {
-      if (subscription) subscription.unsubscribe();
-    };
+    return () => { if (subscription) subscription.unsubscribe(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChannel]);
 
-  // Handle Image Selection
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setSelectedImage(file);
       setImagePreviewUrl(URL.createObjectURL(file));
-      if (fileInputRef.current) {
-         fileInputRef.current.value = "";
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -166,47 +195,31 @@ export default function ChatPage() {
     let uploadedImageUrl = null;
 
     try {
-      // 1. Upload Image (if any)
       if (selectedImage) {
         const fileExt = selectedImage.name.split('.').pop();
         const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
         const filePath = `chat/${selectedChannel.id}/${fileName}`;
         
-        const { error: uploadError } = await supabase.storage
-          .from('photos')
-          .upload(filePath, selectedImage);
+        const { error: uploadError } = await supabase.storage.from('photos').upload(filePath, selectedImage);
+        if (uploadError) throw uploadError;
 
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('photos')
-          .getPublicUrl(filePath);
-
+        const { data: { publicUrl } } = supabase.storage.from('photos').getPublicUrl(filePath);
         uploadedImageUrl = publicUrl;
       }
 
-      // 2. Insert Message
       const content = newMessage.trim();
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          channel_id: selectedChannel.id,
-          user_id: currentUser.id,
-          content: content || null,
-          image_url: uploadedImageUrl
-        });
+      const { error } = await supabase.from('messages').insert({
+        channel_id: selectedChannel.id,
+        user_id: currentUser.id,
+        content: content || null,
+        image_url: uploadedImageUrl
+      });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      // Clean up after success
       setNewMessage("");
       removeSelectedImage();
       setShowEmojiPicker(false);
-      
     } catch (err) {
       console.error("Error sending message:", err);
       alert("Failed to send message. Please try again.");
@@ -216,7 +229,7 @@ export default function ChatPage() {
   };
 
   if (loading) {
-     return <div className="h-[calc(100vh-80px)] md:h-screen flex items-center justify-center bg-gray-50 dark:bg-[#09090b]"><Loader2 className="animate-spin text-adobe-red w-8 h-8"/></div>;
+    return <div className="h-[calc(100vh-80px)] md:h-screen flex items-center justify-center bg-gray-50 dark:bg-[#09090b]"><Loader2 className="animate-spin text-adobe-red w-8 h-8"/></div>;
   }
 
   if (initError) {
@@ -242,7 +255,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-80px)] md:h-screen bg-gray-50 dark:bg-[#09090b]">
-      {/* Channels Sidebar (Mobile hidden, Desktop visible) */}
+      {/* Channels Sidebar */}
       <div className="hidden md:flex flex-col w-72 bg-white/50 dark:bg-black/20 backdrop-blur-3xl border-r border-gray-200/50 dark:border-white/5">
         <div className="p-5 border-b border-gray-200/50 dark:border-white/5 flex justify-between items-center bg-white/40 dark:bg-white/5">
           <h2 className="font-bold text-lg dark:text-white">Channels</h2>
@@ -268,7 +281,7 @@ export default function ChatPage() {
         {/* Mobile Channel Header */}
         <div className="md:hidden flex items-center p-4 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/5 space-x-3 z-10">
           <div className="w-10 h-10 rounded-full bg-adobe-red/10 flex items-center justify-center">
-             <Hash size={20} className="text-adobe-red" />
+            <Hash size={20} className="text-adobe-red" />
           </div>
           <div>
             <h2 className="font-bold text-lg dark:text-white leading-tight">{selectedChannel?.name || "..."}</h2>
@@ -294,26 +307,25 @@ export default function ChatPage() {
               <div key={msg.id} className={`flex items-end space-x-2 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
                 <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 mb-1 border border-white/10 flex items-center justify-center bg-gray-800">
                   {msg.profiles?.avatar_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={msg.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-xs text-white font-bold">{msg.profiles?.name?.charAt(0) || '?'}</span>
                   )}
                 </div>
-                <div className="max-w-[75%] flex flex-col items-end">
-                  <span className={`text-xs text-gray-400 ${isMe ? 'mr-1 text-right' : 'ml-1 self-start'} mb-1 block`}>
+                <div className="max-w-[75%] flex flex-col">
+                  <span className={`text-xs text-gray-400 ${isMe ? 'mr-1 text-right self-end' : 'ml-1'} mb-1 block`}>
                     {!isMe && <span className="font-medium text-gray-300 mr-2">{msg.profiles?.name}</span>}
                     {timeStr}
                   </span>
                   
                   <div className={`flex flex-col gap-2 ${isMe ? 'items-end' : 'items-start'}`}>
-                    {/* Render Image if exists */}
                     {msg.image_url && (
                       <div className="rounded-2xl overflow-hidden border border-gray-200/50 dark:border-white/10 shadow-sm max-w-[240px] md:max-w-sm">
-                        <img src={msg.image_url} alt="Attachment" className="w-full h-auto object-cover" loading="lazy" />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={msg.image_url} alt="Attachment" className="w-full h-auto object-cover" />
                       </div>
                     )}
-                    
-                    {/* Render Text Content if exists */}
                     {msg.content && (
                       <div className={`p-4 rounded-2xl text-sm shadow-md break-words max-w-full ${
                         isMe 
@@ -324,7 +336,6 @@ export default function ChatPage() {
                       </div>
                     )}
                   </div>
-
                 </div>
               </div>
             );
@@ -335,50 +346,45 @@ export default function ChatPage() {
         {/* Input Area */}
         <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/5 pb-8 md:pb-4 flex flex-col relative w-full">
           
-          {/* Image Preview Area */}
+          {/* Image Preview */}
           {imagePreviewUrl && (
-             <div className="px-6 py-3 border-b border-gray-100 dark:border-white/5 flex items-center">
-                <div className="relative inline-block">
-                  <img src={imagePreviewUrl} alt="Preview" className="h-20 w-20 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm" />
-                  <button 
-                    onClick={removeSelectedImage}
-                    className="absolute -top-2 -right-2 bg-black text-white rounded-full p-1 shadow-md hover:bg-gray-800 transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-             </div>
+            <div className="px-6 py-3 border-b border-gray-100 dark:border-white/5 flex items-center">
+              <div className="relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreviewUrl} alt="Preview" className="h-20 w-20 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm" />
+                <button 
+                  onClick={removeSelectedImage}
+                  className="absolute -top-2 -right-2 bg-black text-white rounded-full p-1 shadow-md hover:bg-gray-800 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Emoji Picker Popover */}
           {showEmojiPicker && (
-            <div className="absolute bottom-full right-4 mb-2 shadow-2xl z-50 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800">
-               <EmojiPicker 
-                 theme={"auto" as const} 
-                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                 onEmojiClick={(emojiData: any) => {
-                    setNewMessage(prev => prev + emojiData.emoji);
-                 }} 
-               />
+            <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
+              <InlineEmojiPicker onEmojiSelect={(emoji) => {
+                setNewMessage(prev => prev + emoji);
+              }} />
             </div>
           )}
 
           <div className="px-4 pt-4">
-            <form onSubmit={handleSendMessage} className="flex items-center bg-gray-100 dark:bg-[#18181b] rounded-full px-2 py-2 border border-transparent focus-within:border-adobe-red/30 focus-within:bg-white dark:focus-within:bg-[#18181b] transition-all duration-300">
-              
-              {/* Hidden File Input */}
-              <input 
-                type="file" 
-                accept="image/*,video/mp4,video/quicktime,.gif" 
-                className="hidden" 
-                ref={fileInputRef}
-                onChange={handleImageChange}
-              />
+            <input 
+              type="file" 
+              accept="image/*,.gif" 
+              className="hidden" 
+              ref={fileInputRef}
+              onChange={handleImageChange}
+            />
 
+            <form onSubmit={handleSendMessage} className="flex items-center bg-gray-100 dark:bg-[#18181b] rounded-full px-2 py-2 border border-transparent focus-within:border-adobe-red/30 focus-within:bg-white dark:focus-within:bg-[#18181b] transition-all duration-300">
               <button 
                 type="button" 
                 className="p-2 text-gray-400 hover:text-adobe-red transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => { setShowEmojiPicker(false); fileInputRef.current?.click(); }}
                 disabled={isSending}
               >
                 <ImageIcon size={20} />
@@ -388,7 +394,7 @@ export default function ChatPage() {
                 type="text" 
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder={selectedImage ? "Add a caption..." : `Message #${selectedChannel?.name || '...'}`} 
+                placeholder={selectedImage ? "Add a caption..." : `Message #${selectedChannel?.name || '...'}`}
                 className="flex-1 bg-transparent focus:outline-none text-sm px-2 dark:text-white"
                 disabled={isSending}
               />
@@ -403,21 +409,16 @@ export default function ChatPage() {
               </button>
               
               <button 
-                 type="submit" 
-                 disabled={(!newMessage.trim() && !selectedImage) || isSending} 
-                 className={`w-9 h-9 rounded-full bg-adobe-red text-white flex items-center justify-center transition-colors shadow-sm shadow-adobe-red/30 ${
-                   isSending || (!newMessage.trim() && !selectedImage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-adobe-darkRed'
-                 }`}
+                type="submit" 
+                disabled={(!newMessage.trim() && !selectedImage) || isSending} 
+                className={`w-9 h-9 rounded-full bg-adobe-red text-white flex items-center justify-center transition-colors shadow-sm shadow-adobe-red/30 ${
+                  isSending || (!newMessage.trim() && !selectedImage) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-adobe-darkRed'
+                }`}
               >
-                {isSending ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Send size={16} className="ml-0.5" />
-                )}
+                {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} className="ml-0.5" />}
               </button>
             </form>
           </div>
-          
         </div>
       </div>
     </div>

@@ -355,6 +355,7 @@ export default function ChatPage() {
             <div className="absolute bottom-full right-4 mb-2 shadow-2xl z-50 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800">
                <EmojiPicker 
                  theme={"auto" as const} 
+                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                  onEmojiClick={(emojiData: any) => {
                     setNewMessage(prev => prev + emojiData.emoji);
                  }} 

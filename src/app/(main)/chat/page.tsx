@@ -95,6 +95,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>('Someone');
   const [loading, setLoading] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   
@@ -173,6 +174,16 @@ export default function ChatPage() {
         setInitError(null);
         const { data: { session } } = await getSharedSession();
         setCurrentUser(session?.user || null);
+
+        // Fetch the current user's display name for push notification payloads
+        if (session?.user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          if (profile?.name) setCurrentUserName(profile.name);
+        }
         const channelsResult = await runSupabaseOperation(
           "Loading chat channels",
           (client) => client.from('channels').select('*').order('created_at')
@@ -270,6 +281,21 @@ export default function ChatPage() {
         image_url: uploadedImageUrl
       });
       if (error) throw error;
+
+      // Fire push notifications to all other subscribers
+      const preview = content || (selectedImage ? '📷 Photo' : '');
+      fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel_name: selectedChannel.name,
+          sender_name: currentUserName,
+          message_preview: preview.slice(0, 100),
+          channel_id: selectedChannel.id,
+          sender_user_id: currentUser.id,
+        }),
+      }).catch(console.warn); // Fire-and-forget, don't block UI
+
       setNewMessage("");
       removeSelectedImage();
       setShowEmojiPicker(false);

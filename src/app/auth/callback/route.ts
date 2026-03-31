@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/home'
+  const next = searchParams.get('next') ?? '/'
 
   // Use the configured site URL in production to avoid origin mismatches
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || origin

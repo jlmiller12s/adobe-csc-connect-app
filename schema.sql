@@ -142,3 +142,20 @@ alter table public.push_subscriptions enable row level security;
 create policy "Users can manage their own push subscriptions." on public.push_subscriptions for all using (auth.uid() = user_id);
 -- Allow service role (API routes) to read all subscriptions for sending:
 create policy "Service role can read all push subscriptions." on public.push_subscriptions for select using (true);
+
+-- 10. In-App Notifications
+-- Run this to enable the Notifications tab feed
+create table if not exists public.notifications (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.profiles(id) not null,
+  type text not null, -- 'chat', 'announcement', etc.
+  title text not null,
+  body text not null,
+  is_read boolean default false,
+  link_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table public.notifications enable row level security;
+create policy "Users can view their own notifications." on public.notifications for select using (auth.uid() = user_id);
+create policy "Users can update their own notifications (mark read)." on public.notifications for update using (auth.uid() = user_id);
+create policy "Service role can insert notifications." on public.notifications for insert with check (true);

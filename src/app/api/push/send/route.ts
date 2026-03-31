@@ -66,13 +66,32 @@ export async function POST(req: NextRequest) {
     const { channel_name, sender_name, message_preview, channel_id, sender_user_id } = await req.json();
     const supabase = createClient();
 
+    // 1. Get all users except sender to create in-app notifications
+    const { data: users } = await supabase
+      .from('profiles')
+      .select('id')
+      .neq('id', sender_user_id);
+
+    if (users && users.length > 0) {
+      const notifications = users.map(u => ({
+        user_id: u.id,
+        type: 'chat',
+        title: `#${channel_name}`,
+        body: `${sender_name}: ${message_preview}`,
+        link_url: '/chat',
+      }));
+      // Insert in-app notifications (fire and forget)
+      await supabase.from('notifications').insert(notifications);
+    }
+
+    // 2. Send Web Push to devices that are subscribed
     const { data: subs, error } = await supabase
       .from('push_subscriptions')
       .select('*')
       .neq('user_id', sender_user_id);
 
     if (error) throw error;
-    if (!subs || subs.length === 0) return NextResponse.json({ sent: 0 });
+    if (!subs || subs.length === 0) return NextResponse.json({ sent: 0, in_app_created: users?.length || 0 });
 
     const payload = JSON.stringify({
       title: `#${channel_name}`,

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { Bell } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -23,9 +23,6 @@ export function TopBar() {
       <h1 className="text-lg font-semibold">{getTitle()}</h1>
       <div className="flex items-center space-x-3">
         <ThemeToggle />
-        <Link href="/search" className="p-2 -mr-2 text-gray-500 hover:text-foreground">
-          <Search size={20} />
-        </Link>
         <Link href="/notifications" className="relative p-2 text-gray-500 hover:text-foreground">
           <Bell size={20} />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-adobe-red" />

@@ -40,7 +40,7 @@ export default function NotificationsPage() {
           setNotifications(data);
           
           // Mark all as read
-          const unreadIds = data.filter(n => !n.is_read).map(n => n.id);
+          const unreadIds = data.filter((n: Notification) => !n.is_read).map((n: Notification) => n.id);
           if (unreadIds.length > 0) {
             await supabase
               .from("notifications")

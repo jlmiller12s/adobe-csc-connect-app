@@ -1,6 +1,7 @@
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function MainLayout({
   children,
@@ -12,6 +13,11 @@ export default function MainLayout({
       {/* Desktop Sidebar */}
       <Sidebar />
       
+      {/* Desktop Theme Toggle (hidden on mobile since TopBar has one) */}
+      <div className="hidden md:block fixed top-6 right-6 z-50">
+        <ThemeToggle />
+      </div>
+
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Mobile Header */}

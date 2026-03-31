@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Bell, Search } from "lucide-react";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function TopBar() {
   const pathname = usePathname();
@@ -21,6 +22,7 @@ export function TopBar() {
     <header className="sticky top-0 z-40 flex items-center justify-between h-14 px-4 border-b border-border bg-background/80 backdrop-blur-md md:hidden">
       <h1 className="text-lg font-semibold">{getTitle()}</h1>
       <div className="flex items-center space-x-3">
+        <ThemeToggle />
         <Link href="/search" className="p-2 -mr-2 text-gray-500 hover:text-foreground">
           <Search size={20} />
         </Link>

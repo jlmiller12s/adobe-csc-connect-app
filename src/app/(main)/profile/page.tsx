@@ -106,8 +106,19 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setUploading(true);
-      const file = e.target.files?.[0];
+      let file = e.target.files?.[0];
       if (!file) return;
+
+      if (file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+        try {
+          const heic2any = (await import("heic2any")).default;
+          const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg" });
+          const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+          file = new File([blob], file.name.replace(/\.heic|\.heif/i, ".jpg"), { type: "image/jpeg" });
+        } catch (convErr) {
+          console.error("HEIC conversion error:", convErr);
+        }
+      }
 
       const { data: { session } } = await getSharedSession();
       const user = session?.user;
@@ -214,7 +225,7 @@ export default function ProfilePage() {
               </button>
               <input 
                 type="file" 
-                accept="image/*" 
+                accept="image/*,.heic,.heif" 
                 hidden 
                 ref={fileInputRef}
                 onChange={handleAvatarUpload}

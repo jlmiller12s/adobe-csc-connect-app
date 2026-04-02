@@ -244,9 +244,21 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChannel]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
+      let file = e.target.files[0];
+      
+      if (file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+        try {
+          const heic2any = (await import("heic2any")).default;
+          const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg" });
+          const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+          file = new File([blob], file.name.replace(/\.heic|\.heif/i, ".jpg"), { type: "image/jpeg" });
+        } catch (convErr) {
+          console.error("HEIC conversion error:", convErr);
+        }
+      }
+
       setSelectedImage(file);
       setImagePreviewUrl(URL.createObjectURL(file));
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -543,7 +555,7 @@ export default function ChatPage() {
           )}
 
           <div className="px-4 pt-4">
-            <input type="file" accept="image/*,.gif" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
+            <input type="file" accept="image/*,.gif,.heic,.heif" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
             <form onSubmit={handleSendMessage} className="flex items-center bg-gray-100 dark:bg-[#18181b] rounded-full px-2 py-2 border border-transparent focus-within:border-adobe-red/30 focus-within:bg-white dark:focus-within:bg-[#18181b] transition-all duration-300">
               <button type="button" className="p-2 text-gray-400 hover:text-adobe-red transition-colors" onClick={() => { setShowEmojiPicker(false); fileInputRef.current?.click(); }} disabled={isSending}>
                 <ImageIcon size={20} />

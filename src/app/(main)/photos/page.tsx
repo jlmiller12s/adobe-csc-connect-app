@@ -194,7 +194,19 @@ export default function PhotosPage() {
       if (!user) throw new Error("Not authenticated");
 
       // Upload all selected files
-      const uploadPromises = Array.from(files).map(async (file) => {
+      const uploadPromises = Array.from(files).map(async (originalFile) => {
+        let file = originalFile;
+        if (file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+          try {
+            const heic2any = (await import("heic2any")).default;
+            const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg" });
+            const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+            file = new File([blob], file.name.replace(/\.heic|\.heif/i, ".jpg"), { type: "image/jpeg" });
+          } catch (convErr) {
+            console.error("HEIC conversion error:", convErr);
+          }
+        }
+
         // 1. Upload to Storage
         const fileExt = file.name.split(".").pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
@@ -326,7 +338,7 @@ export default function PhotosPage() {
         {/* Upload button */}
         <input
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           multiple
           hidden
           ref={fileInputRef}

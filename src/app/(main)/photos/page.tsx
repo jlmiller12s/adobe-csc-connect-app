@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import Image from "next/image";
 import { Plus, Loader2, X, ChevronLeft, ChevronRight, Upload, ImageIcon, Trash2 } from "lucide-react";
 import { createClient, getSharedSession, runSupabaseOperation } from "@/lib/supabase/client";
 
@@ -413,19 +414,21 @@ export default function PhotosPage() {
                       }}
                       onClick={() => openLightbox(flatIndex)}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={photo.image_url}
                         alt={photo.caption || "Photo"}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         onLoad={(e) => {
-                          const img = e.currentTarget;
-                          handleImageLoad(
-                            photo.id,
-                            img.naturalWidth,
-                            img.naturalHeight
-                          );
+                          const img = e.currentTarget as HTMLImageElement;
+                          if (img.naturalWidth && img.naturalHeight) {
+                            handleImageLoad(
+                              photo.id,
+                              img.naturalWidth,
+                              img.naturalHeight
+                            );
+                          }
                         }}
                       />
                       {/* Hover overlay */}
@@ -502,11 +505,14 @@ export default function PhotosPage() {
             className="max-w-[90vw] max-h-[85vh] flex flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={photos[lightboxIndex].image_url}
               alt={photos[lightboxIndex].caption || "Photo"}
-              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+              width={photos[lightboxIndex].width || 1200}
+              height={photos[lightboxIndex].height || 800}
+              className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-lg shadow-2xl"
+              sizes="100vw"
+              priority
             />
             {/* Caption & author */}
             <div className="mt-4 text-center flex flex-col items-center gap-3">
